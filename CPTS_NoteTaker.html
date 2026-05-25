@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CPTS Note Taker — y34n</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #0d0f12;
+      --bg-secondary: #13161b;
+      --bg-tertiary: #1a1e26;
+      --bg-card: #1e2229;
+      --border: #2a2f3a;
+      --border-strong: #3a4050;
+      --text-primary: #e8eaf0;
+      --text-secondary: #8b91a0;
+      --text-muted: #555c6e;
+      --green: #1D9E75;
+      --green-bg: rgba(29,158,117,0.12);
+      --green-text: #5DCAA5;
+      --amber: #EF9F27;
+      --amber-bg: rgba(239,159,39,0.12);
+      --amber-text: #FAC775;
+      --red: #E24B4A;
+      --accent: #378ADD;
+      --accent-bg: rgba(55,138,221,0.12);
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --font-sans: 'Inter', system-ui, sans-serif;
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TOP NAV ── */
+    .topnav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+      flex-shrink: 0;
+    }
+    .topnav-logo {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--green-text);
+      letter-spacing: 0.04em;
+    }
+    .topnav-sep { color: var(--text-muted); font-size: 16px; }
+    .topnav-title { font-size: 13px; color: var(--text-secondary); }
+    .topnav-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .prog-wrap { display: flex; align-items: center; gap: 8px; }
+    .prog-bar-bg { width: 120px; height: 4px; background: var(--border); border-radius: 2px; }
+    .prog-bar-fill { height: 100%; border-radius: 2px; background: var(--green); transition: width 0.4s ease; }
+    .prog-label { font-size: 12px; color: var(--text-secondary); font-family: var(--font-mono); white-space: nowrap; }
+
+    /* ── LAYOUT ── */
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: var(--bg-secondary);
+      overflow: hidden;
+    }
+    .sidebar-search {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .search-input {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 10px 6px 30px;
+      font-size: 12px;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      outline: none;
+      transition: border 0.15s;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--text-muted); }
+    .search-wrap { position: relative; }
+    .search-icon {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 14px;
+      pointer-events: none;
+    }
+    .module-list { flex: 1; overflow-y: auto; }
+    .module-list::-webkit-scrollbar { width: 4px; }
+    .module-list::-webkit-scrollbar-track { background: transparent; }
+    .module-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+    .module-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+      transition: background 0.12s;
+      user-select: none;
+    }
+    .module-item:hover { background: var(--bg-tertiary); }
+    .module-item.active { background: var(--bg-card); color: var(--text-primary); }
+    .module-item.active .mod-num { color: var(--accent); }
+    .mod-num { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); min-width: 22px; }
+    .mod-name { flex: 1; line-height: 1.4; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: var(--border-strong); }
+    .status-dot.done { background: var(--green); }
+    .status-dot.inprog { background: var(--amber); }
+    .note-icon { font-size: 11px; color: var(--text-muted); }
+
+    /* ── MAIN AREA ── */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg-primary); }
+
+    .module-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+      flex-wrap: wrap;
+    }
+    .module-title { font-size: 14px; font-weight: 600; color: var(--text-primary); flex: 1; font-family: var(--font-mono); }
+    .badge {
+      font-size: 10px;
+      padding: 3px 9px;
+      border-radius: 99px;
+      border: 1px solid;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+    }
+    .badge-todo { color: var(--text-muted); border-color: var(--border-strong); }
+    .badge-inprog { color: var(--amber-text); border-color: var(--amber); background: var(--amber-bg); }
+    .badge-done { color: var(--green-text); border-color: var(--green); background: var(--green-bg); }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+      padding: 0 20px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 8px 14px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-family: var(--font-sans);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: color 0.15s;
+    }
+    .tab-btn:hover { color: var(--text-primary); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── NOTE EDITOR ── */
+    .editor-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .tab-content { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .tab-content.active { display: flex; }
+
+    /* Notes tab */
+    .note-textarea {
+      flex: 1;
+      resize: none;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.8;
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      border: none;
+      padding: 20px;
+      outline: none;
+      tab-size: 2;
+    }
+    .note-textarea::placeholder { color: var(--text-muted); }
+
+    /* Commands tab */
+    .cmd-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .cmd-input-row {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+    }
+    .cmd-input {
+      flex: 1;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 7px 12px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      outline: none;
+    }
+    .cmd-input:focus { border-color: var(--accent); }
+    .cmd-desc-input {
+      flex: 1.5;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 7px 12px;
+      font-size: 12px;
+      font-family: var(--font-sans);
+      color: var(--text-primary);
+      outline: none;
+    }
+    .cmd-desc-input:focus { border-color: var(--accent); }
+    .cmd-list { flex: 1; overflow-y: auto; padding: 8px 16px; display: flex; flex-direction: column; gap: 6px; }
+    .cmd-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .cmd-item-left { flex: 1; min-width: 0; }
+    .cmd-code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--green-text);
+      word-break: break-all;
+    }
+    .cmd-desc { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+    .cmd-delete { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px; flex-shrink: 0; }
+    .cmd-delete:hover { color: var(--red); }
+    .cmd-copy { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px; flex-shrink: 0; }
+    .cmd-copy:hover { color: var(--accent); }
+    .cmd-empty { text-align: center; color: var(--text-muted); font-size: 12px; padding: 40px 0; font-family: var(--font-mono); }
+
+    /* Checklist tab */
+    .checklist-wrap { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+    .check-input-row {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+    }
+    .check-input {
+      flex: 1;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 7px 12px;
+      font-size: 12px;
+      font-family: var(--font-sans);
+      color: var(--text-primary);
+      outline: none;
+    }
+    .check-input:focus { border-color: var(--accent); }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .check-item.checked { opacity: 0.5; }
+    .check-cb { width: 15px; height: 15px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; }
+    .check-label { flex: 1; font-size: 12px; color: var(--text-primary); cursor: pointer; }
+    .check-item.checked .check-label { text-decoration: line-through; color: var(--text-muted); }
+    .check-del { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; }
+    .check-del:hover { color: var(--red); }
+
+    /* ── BOTTOM BAR ── */
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-secondary);
+      flex-shrink: 0;
+    }
+    .stats { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); flex: 1; }
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-strong);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-family: var(--font-sans);
+      transition: all 0.15s;
+    }
+    .btn:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+    .btn-green { border-color: var(--green); color: var(--green-text); }
+    .btn-green:hover { background: var(--green-bg); }
+    .btn-accent { border-color: var(--accent); color: #85B7EB; }
+    .btn-accent:hover { background: var(--accent-bg); }
+    .btn-add {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+      font-weight: 600;
+    }
+    .btn-add:hover { filter: brightness(1.1); }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--green);
+      color: var(--green-text);
+      font-size: 12px;
+      font-family: var(--font-mono);
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.25s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* ── SCROLLBAR global ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<div class="topnav">
+  <span class="topnav-logo">y34n</span>
+  <span class="topnav-sep">/</span>
+  <span class="topnav-title">CPTS Study Notes</span>
+  <div class="topnav-right">
+    <div class="prog-wrap">
+      <div class="prog-bar-bg"><div class="prog-bar-fill" id="prog-fill" style="width:0%"></div></div>
+      <span class="prog-label" id="prog-label">0/26</span>
+    </div>
+    <button class="btn btn-accent" onclick="exportAll()">
+      <i class="ti ti-download"></i> Export notes
+    </button>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-search">
+      <div class="search-wrap">
+        <i class="ti ti-search search-icon"></i>
+        <input class="search-input" type="text" placeholder="search modules..." id="search-input" oninput="filterModules()" />
+      </div>
+    </div>
+    <div class="module-list" id="module-list"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="module-header">
+      <span class="module-title" id="active-title">← Select a module</span>
+      <span class="badge badge-todo" id="status-badge">todo</span>
+      <button class="btn btn-green" id="btn-mark" onclick="markDone()">
+        <i class="ti ti-check"></i> Mark done
+      </button>
+      <button class="btn" onclick="clearModule()" style="border-color:#E24B4A;color:#F09595;">
+        <i class="ti ti-trash"></i> Clear
+      </button>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-notes-btn" onclick="switchTab('notes')">
+        <i class="ti ti-notes"></i> Notes
+      </button>
+      <button class="tab-btn" id="tab-cmds-btn" onclick="switchTab('cmds')">
+        <i class="ti ti-terminal"></i> Commands
+      </button>
+      <button class="tab-btn" id="tab-check-btn" onclick="switchTab('check')">
+        <i class="ti ti-checklist"></i> Exam checklist
+      </button>
+    </div>
+
+    <!-- EDITOR AREA -->
+    <div class="editor-wrap">
+
+      <!-- NOTES TAB -->
+      <div class="tab-content active" id="tab-notes">
+        <textarea class="note-textarea" id="note-textarea" oninput="onNoteInput()"
+          placeholder="# Key Concepts&#10;- ...&#10;&#10;# Tools Used&#10;- nmap, netcat, hydra...&#10;&#10;# Important Commands&#10;nmap -sV -sC -p- target&#10;&#10;# What the module covers&#10;- ...&#10;&#10;# Exam Tips / Gotchas&#10;- Pay attention to...&#10;- Don't forget...&#10;&#10;# Personal Notes&#10;- ..."></textarea>
+      </div>
+
+      <!-- COMMANDS TAB -->
+      <div class="tab-content" id="tab-cmds">
+        <div class="cmd-input-row">
+          <input class="cmd-input" id="cmd-input" placeholder="command (e.g. nmap -sV -p-)" onkeydown="if(event.key==='Enter')addCmd()" />
+          <input class="cmd-desc-input" id="cmd-desc-input" placeholder="description (what it does)" onkeydown="if(event.key==='Enter')addCmd()" />
+          <button class="btn btn-add" onclick="addCmd()"><i class="ti ti-plus"></i> Add</button>
+        </div>
+        <div class="cmd-list" id="cmd-list"></div>
+      </div>
+
+      <!-- CHECKLIST TAB -->
+      <div class="tab-content" id="tab-check">
+        <div class="check-input-row">
+          <input class="check-input" id="check-input" placeholder="add exam checklist item..." onkeydown="if(event.key==='Enter')addCheck()" />
+          <button class="btn btn-add" onclick="addCheck()"><i class="ti ti-plus"></i> Add</button>
+        </div>
+        <div class="checklist-wrap" id="checklist-wrap"></div>
+      </div>
+
+    </div>
+
+    <!-- BOTTOM BAR -->
+    <div class="bottom-bar">
+      <span class="stats" id="stats-text">select a module to begin</span>
+      <button class="btn" onclick="prevModule()"><i class="ti ti-arrow-left"></i> Prev</button>
+      <button class="btn" onclick="nextModule()">Next <i class="ti ti-arrow-right"></i></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const MODULES = [
+  "Network Enumeration With Nmap",
+  "Footprinting",
+  "Information Gathering - Web Edition",
+  "Vulnerability Assessment",
+  "File Transfer",
+  "Shells & Payloads",
+  "Using The Metasploit Framework",
+  "Password Attacks",
+  "Attack Common Services",
+  "Pivot, Tunneling, and Port Forwarding",
+  "Active Directory Enumeration & Attacks",
+  "Using Web Proxies",
+  "Attacking Web Applications With Ffuf",
+  "Login Brute Forcing",
+  "SQL Injection Fundamentals",
+  "SQLMap Essentials",
+  "Cross-Site Scripting (XSS)",
+  "File Inclusion",
+  "File Upload Attacks",
+  "Command Injections",
+  "Web Attacks",
+  "Attacking Common Applications",
+  "Linux Privilege Escalation",
+  "Windows Privilege Escalation",
+  "Documentation & Reporting",
+  "Attacking Enterprise Networks"
+];
+
+// State
+let state = loadState();
+let activeIdx = state.active || 0;
+let activeTab = 'notes';
+
+function defaultState() {
+  return {
+    active: 0,
+    notes: {},
+    status: {},
+    cmds: {},
+    checks: {}
+  };
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('cpts_v2');
+    return raw ? JSON.parse(raw) : defaultState();
+  } catch(e) { return defaultState(); }
+}
+
+function persist() {
+  try { localStorage.setItem('cpts_v2', JSON.stringify(state)); } catch(e) {}
+}
+
+// ── RENDER SIDEBAR ──
+function renderList(filter) {
+  const list = document.getElementById('module-list');
+  list.innerHTML = '';
+  MODULES.forEach((m, i) => {
+    if (filter && !m.toLowerCase().includes(filter.toLowerCase())) return;
+    const s = state.status[i] || 'todo';
+    const hasNote = (state.notes[i] || '').trim().length > 0;
+    const hasCmds = (state.cmds[i] || []).length > 0;
+
+    const div = document.createElement('div');
+    div.className = 'module-item' + (i === activeIdx ? ' active' : '');
+    div.onclick = () => selectModule(i);
+    div.innerHTML = `
+      <span class="mod-num">${String(i+1).padStart(2,'0')}</span>
+      <span class="mod-name">${m}</span>
+      ${hasNote || hasCmds ? '<i class="ti ti-file note-icon" aria-hidden="true"></i>' : ''}
+      <span class="status-dot ${s === 'done' ? 'done' : s === 'inprog' ? 'inprog' : ''}"></span>
+    `;
+    list.appendChild(div);
+  });
+  updateProgress();
+}
+
+function filterModules() {
+  renderList(document.getElementById('search-input').value);
+}
+
+// ── SELECT MODULE ──
+function selectModule(i) {
+  activeIdx = i;
+  state.active = i;
+
+  document.getElementById('active-title').textContent = `${String(i+1).padStart(2,'0')}. ${MODULES[i]}`;
+  document.getElementById('note-textarea').value = state.notes[i] || '';
+
+  const s = state.status[i] || 'todo';
+  updateBadge(s);
+  renderCmds();
+  renderChecks();
+  updateStats();
+  renderList(document.getElementById('search-input').value);
+  persist();
+}
+
+function updateBadge(s) {
+  const badge = document.getElementById('status-badge');
+  badge.className = 'badge badge-' + (s === 'done' ? 'done' : s === 'inprog' ? 'inprog' : 'todo');
+  badge.textContent = s === 'inprog' ? 'in progress' : s;
+}
+
+// ── NOTES ──
+function onNoteInput() {
+  const val = document.getElementById('note-textarea').value;
+  state.notes[activeIdx] = val;
+  if (val.trim() && (state.status[activeIdx] || 'todo') === 'todo') {
+    state.status[activeIdx] = 'inprog';
+    updateBadge('inprog');
+  }
+  updateStats();
+  renderList(document.getElementById('search-input').value);
+  persist();
+}
+
+// ── STATUS ──
+function markDone() {
+  const cur = state.status[activeIdx] || 'todo';
+  const next = cur === 'done' ? 'inprog' : 'done';
+  state.status[activeIdx] = next;
+  updateBadge(next);
+  renderList(document.getElementById('search-input').value);
+  persist();
+  toast(next === 'done' ? '✓ Module marked as done!' : '↩ Marked as in progress');
+}
+
+// ── COMMANDS ──
+function addCmd() {
+  const cmdEl = document.getElementById('cmd-input');
+  const descEl = document.getElementById('cmd-desc-input');
+  const cmd = cmdEl.value.trim();
+  const desc = descEl.value.trim();
+  if (!cmd) return;
+  if (!state.cmds[activeIdx]) state.cmds[activeIdx] = [];
+  state.cmds[activeIdx].push({ cmd, desc, id: Date.now() });
+  cmdEl.value = '';
+  descEl.value = '';
+  if ((state.status[activeIdx] || 'todo') === 'todo') {
+    state.status[activeIdx] = 'inprog';
+    updateBadge('inprog');
+  }
+  renderCmds();
+  renderList(document.getElementById('search-input').value);
+  persist();
+}
+
+function deleteCmd(id) {
+  state.cmds[activeIdx] = (state.cmds[activeIdx] || []).filter(c => c.id !== id);
+  renderCmds();
+  persist();
+}
+
+function copyCmd(cmd) {
+  navigator.clipboard.writeText(cmd).catch(() => {});
+  toast('Copied!');
+}
+
+function renderCmds() {
+  const list = document.getElementById('cmd-list');
+  const cmds = state.cmds[activeIdx] || [];
+  if (!cmds.length) {
+    list.innerHTML = '<div class="cmd-empty">no commands yet — add one above</div>';
+    return;
+  }
+  list.innerHTML = cmds.map(c => `
+    <div class="cmd-item">
+      <div class="cmd-item-left">
+        <div class="cmd-code">${escHtml(c.cmd)}</div>
+        ${c.desc ? `<div class="cmd-desc">${escHtml(c.desc)}</div>` : ''}
+      </div>
+      <button class="cmd-copy" onclick="copyCmd('${escAttr(c.cmd)}')" title="copy"><i class="ti ti-copy"></i></button>
+      <button class="cmd-delete" onclick="deleteCmd(${c.id})" title="delete"><i class="ti ti-trash"></i></button>
+    </div>
+  `).join('');
+}
+
+// ── CHECKLIST ──
+function addCheck() {
+  const el = document.getElementById('check-input');
+  const text = el.value.trim();
+  if (!text) return;
+  if (!state.checks[activeIdx]) state.checks[activeIdx] = [];
+  state.checks[activeIdx].push({ text, done: false, id: Date.now() });
+  el.value = '';
+  renderChecks();
+  persist();
+}
+
+function toggleCheck(id) {
+  const item = (state.checks[activeIdx] || []).find(c => c.id === id);
+  if (item) item.done = !item.done;
+  renderChecks();
+  persist();
+}
+
+function deleteCheck(id) {
+  state.checks[activeIdx] = (state.checks[activeIdx] || []).filter(c => c.id !== id);
+  renderChecks();
+  persist();
+}
+
+function renderChecks() {
+  const wrap = document.getElementById('checklist-wrap');
+  const items = state.checks[activeIdx] || [];
+  if (!items.length) {
+    wrap.innerHTML = '<div class="cmd-empty">no checklist items — add exam points to remember</div>';
+    return;
+  }
+  wrap.innerHTML = items.map(c => `
+    <div class="check-item ${c.done ? 'checked' : ''}">
+      <input type="checkbox" class="check-cb" ${c.done ? 'checked' : ''} onchange="toggleCheck(${c.id})" />
+      <span class="check-label" onclick="toggleCheck(${c.id})">${escHtml(c.text)}</span>
+      <button class="check-del" onclick="deleteCheck(${c.id})"><i class="ti ti-x"></i></button>
+    </div>
+  `).join('');
+}
+
+// ── TABS ──
+function switchTab(tab) {
+  activeTab = tab;
+  ['notes','cmds','check'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('tab-' + t + '-btn').classList.toggle('active', t === tab);
+  });
+}
+
+// ── NAV ──
+function prevModule() {
+  if (activeIdx > 0) selectModule(activeIdx - 1);
+}
+function nextModule() {
+  if (activeIdx < MODULES.length - 1) selectModule(activeIdx + 1);
+}
+
+// ── CLEAR ──
+function clearModule() {
+  if (!confirm(`Clear all notes, commands, and checklist for module ${activeIdx + 1}?`)) return;
+  delete state.notes[activeIdx];
+  delete state.cmds[activeIdx];
+  delete state.checks[activeIdx];
+  state.status[activeIdx] = 'todo';
+  selectModule(activeIdx);
+  toast('Module cleared.');
+}
+
+// ── STATS ──
+function updateStats() {
+  const note = state.notes[activeIdx] || '';
+  const words = note.trim() ? note.trim().split(/\s+/).length : 0;
+  const lines = note.split('\n').length;
+  const cmds = (state.cmds[activeIdx] || []).length;
+  const checks = (state.checks[activeIdx] || []).length;
+  document.getElementById('stats-text').textContent =
+    `words: ${words} · lines: ${lines} · cmds: ${cmds} · checks: ${checks}`;
+}
+
+// ── PROGRESS ──
+function updateProgress() {
+  const done = MODULES.filter((_, i) => (state.status[i] || 'todo') === 'done').length;
+  const pct = Math.round((done / MODULES.length) * 100);
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-label').textContent = done + '/' + MODULES.length;
+}
+
+// ── EXPORT ──
+function exportAll() {
+  const now = new Date();
+  const date = now.toLocaleString();
+  let out = '';
+  out += '╔══════════════════════════════════════════════════════╗\n';
+  out += '║          CPTS EXAM REFERENCE NOTES — y34n           ║\n';
+  out += '╚══════════════════════════════════════════════════════╝\n';
+  out += `Exported: ${date}\n\n`;
+
+  let done = 0;
+  MODULES.forEach((m, i) => {
+    const s = state.status[i] || 'todo';
+    if (s === 'done') done++;
+    const note = (state.notes[i] || '').trim();
+    const cmds = state.cmds[i] || [];
+    const checks = state.checks[i] || [];
+
+    out += `\n${'═'.repeat(60)}\n`;
+    out += `[${s.toUpperCase()}] ${String(i+1).padStart(2,'0')}. ${m}\n`;
+    out += `${'─'.repeat(60)}\n`;
+
+    if (note) {
+      out += '\n📝 NOTES:\n';
+      out += note + '\n';
+    }
+
+    if (cmds.length) {
+      out += '\n⚡ COMMANDS:\n';
+      cmds.forEach(c => {
+        out += `  $ ${c.cmd}\n`;
+        if (c.desc) out += `    → ${c.desc}\n`;
+      });
+    }
+
+    if (checks.length) {
+      out += '\n✅ EXAM CHECKLIST:\n';
+      checks.forEach(c => {
+        out += `  [${c.done ? 'x' : ' '}] ${c.text}\n`;
+      });
+    }
+
+    if (!note && !cmds.length && !checks.length) {
+      out += '  (no notes)\n';
+    }
+  });
+
+  out += `\n${'═'.repeat(60)}\n`;
+  out += `PROGRESS: ${done} / ${MODULES.length} modules completed (${Math.round(done/MODULES.length*100)}%)\n`;
+
+  const blob = new Blob([out], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `CPTS_Notes_${now.toISOString().slice(0,10)}.txt`;
+  a.click();
+  toast('Notes exported!');
+}
+
+// ── HELPERS ──
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return s.replace(/'/g,"\\'").replace(/"/g,'&quot;');
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── KEYBOARD SHORTCUTS ──
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.key === 'ArrowRight') { e.preventDefault(); nextModule(); }
+  if (e.ctrlKey && e.key === 'ArrowLeft') { e.preventDefault(); prevModule(); }
+  if (e.ctrlKey && e.key === 'e') { e.preventDefault(); exportAll(); }
+});
+
+// ── INIT ──
+renderList();
+selectModule(activeIdx);
+</script>
+</body>
+</html>
