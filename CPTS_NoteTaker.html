@@ -53,6 +53,19 @@
       background: var(--bg-secondary);
       flex-shrink: 0;
     }
+    .sidebar-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 4px 8px;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      transition: all 0.15s;
+    }
+    .sidebar-toggle:hover { background: var(--bg-tertiary); color: var(--text-primary); }
     .topnav-logo {
       font-family: var(--font-mono);
       font-size: 14px;
@@ -80,6 +93,37 @@
       border-right: 1px solid var(--border);
       background: var(--bg-secondary);
       overflow: hidden;
+      transition: opacity 0.2s ease;
+    }
+    .sidebar.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      opacity: 0;
+      pointer-events: none;
+      border-right: none;
+    }
+
+    /* ── RESIZE HANDLE ── */
+    .resize-handle {
+      width: 4px;
+      min-width: 4px;
+      background: transparent;
+      cursor: col-resize;
+      position: relative;
+      z-index: 10;
+      transition: background 0.15s;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+    }
+    .resize-handle:hover, .resize-handle.dragging {
+      background: var(--accent);
+      border-right-color: var(--accent);
+    }
+    .resize-handle::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      left: -4px; right: -4px;
     }
     .sidebar-search {
       padding: 10px 12px;
@@ -338,7 +382,75 @@
     }
     .btn-add:hover { filter: brightness(1.1); }
 
-    /* ── TOAST ── */
+    /* ── EXPORT MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .modal-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+    }
+    .modal-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: -6px;
+    }
+    .modal-formats {
+      display: flex;
+      gap: 10px;
+    }
+    .fmt-btn {
+      flex: 1;
+      padding: 14px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-strong);
+      background: var(--bg-tertiary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .fmt-btn:hover { border-color: var(--accent); color: var(--text-primary); background: var(--accent-bg); }
+    .fmt-btn i { font-size: 22px; }
+    .fmt-btn span { font-size: 10px; color: var(--text-muted); }
+    .modal-cancel {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 6px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+    }
+    .modal-cancel:hover { color: var(--text-primary); border-color: var(--border-strong); }
+
+  /* ── TOAST ── */
     .toast {
       position: fixed;
       bottom: 20px;
@@ -368,6 +480,9 @@
 
 <!-- TOP NAV -->
 <div class="topnav">
+  <button class="sidebar-toggle" id="sidebar-toggle-btn" onclick="toggleSidebar()" title="Toggle sidebar (Ctrl+B)">
+    <i class="ti ti-layout-sidebar" id="sidebar-toggle-icon"></i>
+  </button>
   <span class="topnav-logo">y34n</span>
   <span class="topnav-sep">/</span>
   <span class="topnav-title">CPTS Study Notes</span>
@@ -384,7 +499,7 @@
 
 <div class="layout">
   <!-- SIDEBAR -->
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
     <div class="sidebar-search">
       <div class="search-wrap">
         <i class="ti ti-search search-icon"></i>
@@ -394,6 +509,7 @@
     <div class="module-list" id="module-list"></div>
   </div>
 
+  <div class="resize-handle" id="resize-handle"></div>
   <!-- MAIN -->
   <div class="main">
     <div class="module-header">
@@ -453,9 +569,30 @@
     <!-- BOTTOM BAR -->
     <div class="bottom-bar">
       <span class="stats" id="stats-text">select a module to begin</span>
+      <button class="btn" onclick="exportModule()"><i class="ti ti-file-export"></i> Export this</button>
       <button class="btn" onclick="prevModule()"><i class="ti ti-arrow-left"></i> Prev</button>
       <button class="btn" onclick="nextModule()">Next <i class="ti ti-arrow-right"></i></button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="export-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Export format</div>
+    <div class="modal-sub" id="modal-sub">Choose a file format</div>
+    <div class="modal-formats">
+      <button class="fmt-btn" onclick="doExport('txt')">
+        <i class="ti ti-file-text"></i>
+        .txt
+        <span>plain text</span>
+      </button>
+      <button class="fmt-btn" onclick="doExport('md')">
+        <i class="ti ti-markdown"></i>
+        .md
+        <span>markdown</span>
+      </button>
+    </div>
+    <button class="modal-cancel" onclick="closeModal()">Cancel</button>
   </div>
 </div>
 
@@ -730,16 +867,104 @@ function updateProgress() {
   document.getElementById('prog-label').textContent = done + '/' + MODULES.length;
 }
 
-// ── EXPORT ──
+// ── EXPORT MODAL ──
+let exportMode = 'all'; // 'all' | 'single'
+
+function exportModule() {
+  exportMode = 'single';
+  const m = MODULES[activeIdx];
+  document.getElementById('modal-title').textContent = 'Export this module';
+  document.getElementById('modal-sub').textContent = `${String(activeIdx+1).padStart(2,'0')}. ${m}`;
+  document.getElementById('export-modal').classList.add('show');
+}
+
 function exportAll() {
+  exportMode = 'all';
+  document.getElementById('modal-title').textContent = 'Export all modules';
+  document.getElementById('modal-sub').textContent = 'All 26 modules in one file';
+  document.getElementById('export-modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('export-modal').classList.remove('show');
+}
+
+document.getElementById('export-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('export-modal')) closeModal();
+});
+
+function doExport(fmt) {
+  closeModal();
+  if (exportMode === 'single') doExportSingle(fmt);
+  else doExportAll(fmt);
+}
+
+// ── BUILD CONTENT ──
+function buildSingleTxt(i) {
+  const m = MODULES[i];
+  const s = state.status[i] || 'todo';
+  const note = (state.notes[i] || '').trim();
+  const cmds = state.cmds[i] || [];
+  const checks = state.checks[i] || [];
   const now = new Date();
-  const date = now.toLocaleString();
+  let out = '';
+  out += '╔══════════════════════════════════════════════════════╗\n';
+  out += '║          CPTS MODULE NOTES — y34n                   ║\n';
+  out += '╚══════════════════════════════════════════════════════╝\n';
+  out += `Exported: ${now.toLocaleString()}\n\n`;
+  out += `${'═'.repeat(60)}\n`;
+  out += `[${s.toUpperCase()}] ${String(i+1).padStart(2,'0')}. ${m}\n`;
+  out += `${'─'.repeat(60)}\n`;
+  if (note) { out += '\n📝 NOTES:\n' + note + '\n'; }
+  if (cmds.length) {
+    out += '\n⚡ COMMANDS:\n';
+    cmds.forEach(c => { out += `  $ ${c.cmd}\n`; if (c.desc) out += `    → ${c.desc}\n`; });
+  }
+  if (checks.length) {
+    out += '\n✅ EXAM CHECKLIST:\n';
+    checks.forEach(c => { out += `  [${c.done ? 'x' : ' '}] ${c.text}\n`; });
+  }
+  if (!note && !cmds.length && !checks.length) out += '  (no notes)\n';
+  return out;
+}
+
+function buildSingleMd(i) {
+  const m = MODULES[i];
+  const s = state.status[i] || 'todo';
+  const note = (state.notes[i] || '').trim();
+  const cmds = state.cmds[i] || [];
+  const checks = state.checks[i] || [];
+  const now = new Date();
+  const badge = s === 'done' ? '✅ done' : s === 'inprog' ? '🔄 in progress' : '⬜ todo';
+  let out = '';
+  out += `# ${String(i+1).padStart(2,'0')}. ${m}\n\n`;
+  out += `> **Status:** ${badge}  \n`;
+  out += `> **Exported:** ${now.toLocaleString()}\n\n`;
+  out += `---\n\n`;
+  if (note) { out += `## 📝 Notes\n\n${note}\n\n`; }
+  if (cmds.length) {
+    out += `## ⚡ Commands\n\n`;
+    cmds.forEach(c => {
+      out += `\`\`\`bash\n${c.cmd}\n\`\`\`\n`;
+      if (c.desc) out += `> ${c.desc}\n\n`;
+    });
+  }
+  if (checks.length) {
+    out += `## ✅ Exam Checklist\n\n`;
+    checks.forEach(c => { out += `- [${c.done ? 'x' : ' '}] ${c.text}\n`; });
+    out += '\n';
+  }
+  if (!note && !cmds.length && !checks.length) out += '_No notes yet._\n';
+  return out;
+}
+
+function buildAllTxt() {
+  const now = new Date();
   let out = '';
   out += '╔══════════════════════════════════════════════════════╗\n';
   out += '║          CPTS EXAM REFERENCE NOTES — y34n           ║\n';
   out += '╚══════════════════════════════════════════════════════╝\n';
-  out += `Exported: ${date}\n\n`;
-
+  out += `Exported: ${now.toLocaleString()}\n\n`;
   let done = 0;
   MODULES.forEach((m, i) => {
     const s = state.status[i] || 'todo';
@@ -747,45 +972,94 @@ function exportAll() {
     const note = (state.notes[i] || '').trim();
     const cmds = state.cmds[i] || [];
     const checks = state.checks[i] || [];
-
     out += `\n${'═'.repeat(60)}\n`;
     out += `[${s.toUpperCase()}] ${String(i+1).padStart(2,'0')}. ${m}\n`;
     out += `${'─'.repeat(60)}\n`;
-
-    if (note) {
-      out += '\n📝 NOTES:\n';
-      out += note + '\n';
-    }
-
+    if (note) { out += '\n📝 NOTES:\n' + note + '\n'; }
     if (cmds.length) {
       out += '\n⚡ COMMANDS:\n';
-      cmds.forEach(c => {
-        out += `  $ ${c.cmd}\n`;
-        if (c.desc) out += `    → ${c.desc}\n`;
-      });
+      cmds.forEach(c => { out += `  $ ${c.cmd}\n`; if (c.desc) out += `    → ${c.desc}\n`; });
     }
-
     if (checks.length) {
       out += '\n✅ EXAM CHECKLIST:\n';
-      checks.forEach(c => {
-        out += `  [${c.done ? 'x' : ' '}] ${c.text}\n`;
-      });
+      checks.forEach(c => { out += `  [${c.done ? 'x' : ' '}] ${c.text}\n`; });
     }
-
-    if (!note && !cmds.length && !checks.length) {
-      out += '  (no notes)\n';
-    }
+    if (!note && !cmds.length && !checks.length) out += '  (no notes)\n';
   });
-
   out += `\n${'═'.repeat(60)}\n`;
   out += `PROGRESS: ${done} / ${MODULES.length} modules completed (${Math.round(done/MODULES.length*100)}%)\n`;
+  return out;
+}
 
-  const blob = new Blob([out], { type: 'text/plain' });
+function buildAllMd() {
+  const now = new Date();
+  const done = MODULES.filter((_, i) => (state.status[i] || 'todo') === 'done').length;
+  const pct = Math.round(done / MODULES.length * 100);
+  let out = '';
+  out += `# CPTS Exam Reference Notes\n\n`;
+  out += `> **y34n** | Exported: ${now.toLocaleString()}  \n`;
+  out += `> **Progress:** ${done}/${MODULES.length} modules done (${pct}%)\n\n`;
+  out += `---\n\n`;
+  out += `## Table of Contents\n\n`;
+  MODULES.forEach((m, i) => {
+    const s = state.status[i] || 'todo';
+    const icon = s === 'done' ? '✅' : s === 'inprog' ? '🔄' : '⬜';
+    out += `${i+1}. ${icon} [${m}](#${String(i+1).padStart(2,'0')}-${m.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')})\n`;
+  });
+  out += '\n---\n\n';
+  MODULES.forEach((m, i) => {
+    const s = state.status[i] || 'todo';
+    const note = (state.notes[i] || '').trim();
+    const cmds = state.cmds[i] || [];
+    const checks = state.checks[i] || [];
+    const badge = s === 'done' ? '✅ done' : s === 'inprog' ? '🔄 in progress' : '⬜ todo';
+    out += `## ${String(i+1).padStart(2,'0')}. ${m}\n\n`;
+    out += `**Status:** ${badge}\n\n`;
+    if (note) { out += `### 📝 Notes\n\n${note}\n\n`; }
+    if (cmds.length) {
+      out += `### ⚡ Commands\n\n`;
+      cmds.forEach(c => {
+        out += `\`\`\`bash\n${c.cmd}\n\`\`\`\n`;
+        if (c.desc) out += `> ${c.desc}\n\n`;
+      });
+    }
+    if (checks.length) {
+      out += `### ✅ Exam Checklist\n\n`;
+      checks.forEach(c => { out += `- [${c.done ? 'x' : ' '}] ${c.text}\n`; });
+      out += '\n';
+    }
+    if (!note && !cmds.length && !checks.length) out += '_No notes yet._\n\n';
+    out += '---\n\n';
+  });
+  return out;
+}
+
+// ── DO EXPORT ──
+function doExportSingle(fmt) {
+  const i = activeIdx;
+  const m = MODULES[i];
+  const now = new Date();
+  const slug = m.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const content = fmt === 'md' ? buildSingleMd(i) : buildSingleTxt(i);
+  const filename = `CPTS_${String(i+1).padStart(2,'0')}_${slug}_${now.toISOString().slice(0,10)}.${fmt}`;
+  download(content, filename);
+  toast(`Exported as .${fmt} — ${String(i+1).padStart(2,'0')}. ${m}`);
+}
+
+function doExportAll(fmt) {
+  const now = new Date();
+  const content = fmt === 'md' ? buildAllMd() : buildAllTxt();
+  const filename = `CPTS_Notes_${now.toISOString().slice(0,10)}.${fmt}`;
+  download(content, filename);
+  toast(`All modules exported as .${fmt}`);
+}
+
+function download(content, filename) {
+  const blob = new Blob([content], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `CPTS_Notes_${now.toISOString().slice(0,10)}.txt`;
+  a.download = filename;
   a.click();
-  toast('Notes exported!');
 }
 
 // ── HELPERS ──
@@ -802,11 +1076,62 @@ function toast(msg) {
   setTimeout(() => el.classList.remove('show'), 2000);
 }
 
+// ── SIDEBAR TOGGLE ──
+let sidebarOpen = true;
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  const sb = document.getElementById('sidebar');
+  const handle = document.getElementById('resize-handle');
+  const icon = document.getElementById('sidebar-toggle-icon');
+  sb.classList.toggle('collapsed', !sidebarOpen);
+  handle.style.display = sidebarOpen ? '' : 'none';
+  icon.className = sidebarOpen ? 'ti ti-layout-sidebar' : 'ti ti-layout-sidebar-right';
+}
+
+// ── DRAG RESIZE ──
+(function() {
+  const handle = document.getElementById('resize-handle');
+  const sidebar = document.getElementById('sidebar');
+  const MIN_W = 160;
+  const MAX_W = 480;
+  let dragging = false;
+  let startX = 0;
+  let startW = 0;
+
+  handle.addEventListener('mousedown', e => {
+    dragging = true;
+    startX = e.clientX;
+    startW = sidebar.getBoundingClientRect().width;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const delta = e.clientX - startX;
+    let newW = Math.min(MAX_W, Math.max(MIN_W, startW + delta));
+    sidebar.style.width = newW + 'px';
+    sidebar.style.minWidth = newW + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
 // ── KEYBOARD SHORTCUTS ──
 document.addEventListener('keydown', e => {
   if (e.ctrlKey && e.key === 'ArrowRight') { e.preventDefault(); nextModule(); }
   if (e.ctrlKey && e.key === 'ArrowLeft') { e.preventDefault(); prevModule(); }
-  if (e.ctrlKey && e.key === 'e') { e.preventDefault(); exportAll(); }
+  if (e.ctrlKey && e.shiftKey && e.key === 'E') { e.preventDefault(); exportModule(); }
+  if (e.ctrlKey && !e.shiftKey && e.key === 'e') { e.preventDefault(); exportAll(); }
+  if (e.ctrlKey && e.key === 'b') { e.preventDefault(); toggleSidebar(); }
 });
 
 // ── INIT ──
