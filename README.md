@@ -1,5 +1,7 @@
 # CPTS Note Taker
 
+![HTB Certified Penetration Testing Specialist banner](htb.jpg)
+
 Single-file HTML note taker for CPTS study prep.
 
 ## Overview
